@@ -1,0 +1,37 @@
+---
+title: "Data Memo"
+subtitle: |
+  | Final Project 
+  | Data Visualization (STAT 302-0)
+author: Alex Boyko
+pagetitle: "Final Project Data Memo"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-location: left
+    embed-resources: true
+    
+from: markdown+emoji 
+reference-location: margin
+citation-location: margin
+---
+
+::: {.callout-tip icon=false}
+
+## Github Repo Link
+
+[https://github.com/aboyko22/data_vis_final](https://github.com/aboyko22/data_vis_final4)
+
+:::
+
+## Data Source
+
+## Why This Data
+
+## Visualization Plan
+
+## Initial Data Issues
+
+## Miscellaneous
