@@ -18,7 +18,7 @@ reference-location: margin
 citation-location: margin
 ---
 
-::: {.callout-tip icon=false}
+::: {.callout-important}
 
 ## Github Repo Link
 
@@ -28,10 +28,20 @@ citation-location: margin
 
 ## Data Source
 
+All data from this project comes from the `cfbfastR` package^[[https://cfbfastr.sportsdataverse.org/](https://cfbfastr.sportsdataverse.org/)], designed to scrape college football data from the web using an API.
+
 ## Why This Data
+
+I'm quite familiar with both the sport of football and the leveraging of its data for projects. However, most of my time has been spent focusing on professional football (the NFL), and I am less familiar with the college game and the data sources for NCAA games. I wanted to choose a topic that I understand well enough so I can utilize its data to create meaningful visualizations and write ups, but also something relatively new so I can apply the skills I've learned rather than repurposing ideas I've had in the past. This felt like a good medium between the two — to both explore and story tell.
 
 ## Visualization Plan
 
+I am planning on creating a dashboard using Shiny. The goal is to use multiple forms of organization and visualizations (tables, column charts, scatter plots, etc.) to create a portfolio of information that is intuitive, interactive, and full of information. My plan for this dashboard to function somewhat like a scouting report.
+
 ## Initial Data Issues
 
+I have been able to read in the data necessary for this project. The data has been cleaned and manipulated slightly to resolve some issues with data entry and combine sources of information. It has also been downscaled to focus only on FBS programs, since this is the primary focus of college football discussion and data quality is higher. The cleaning process can be found in the `00_Data_Cleaning` file in the scripts folder, and the cleaned data has been written out to the data folder.
+
 ## Miscellaneous
+
+The dashboard created from this project will be somewhat similar to previous labs, but will have two main differences. First, there will be conditional selection within the widgets to allow for wider utilization. Second, the dashboard will be tabular, to provide different types of information within the same central source of the Shiny application.
