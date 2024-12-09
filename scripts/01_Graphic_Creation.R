@@ -9,10 +9,12 @@ library(gtExtras)
 library(glue)
 library(htmltools)
 library(ggthemes)
+library(ggrepel)
 
 # load data ----
-load("data/team_data.rda")
-load("data/player_data.rda")
+load("thelowdown/data/team_data.rda")
+load("thelowdown/data/player_data.rda")
+load("thelowdown/data/game_stats.rda")
 
 team_data <- team_data %>%
   mutate(
@@ -54,7 +56,7 @@ team_data %>%
          rush_ypa_percentile = floor((rank(`Rushing Yards` / `Rush Attempts`) - 1) / (n() - 1) * 98) + 1,
          ) %>%
   select(school, color, logo, alt_color, ends_with("percentile")) %>%
-  filter(school == "Alabama") %>%
+  filter(school == "Northwestern") %>%
   pivot_longer(cols = ends_with("percentile"), names_to = "category") %>%
   ggplot(aes(x = category, y = value)) +
   geom_col(aes(fill = color, group = school), width = 1) +
@@ -149,6 +151,17 @@ player_data %>%
     locations = cells_body(columns = info)) %>%
   cols_width(headshot_url ~ px(260), info ~ px(150))
     
+# player weekly stats ----
+game_stats %>%
+  filter(player == "Cam Porter") %>%
+  ggplot(aes(x = as_factor(week), y = `Rushing Yards`, group = player, color = color)) +
+  geom_line() +
+  geom_label(aes(label = `Rushing Yards`)) +
+  scale_color_identity() +
+  labs(x = NULL, y = NULL, title = "Cam Porter's Rushing Yards This Season") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 18, hjust = 0.5))
+
 # tooling around ----
 us_map <- map_data(map = "state") %>%
   mutate(state = state.abb[match(region, tolower(state.name))]) %>%

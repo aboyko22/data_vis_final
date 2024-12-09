@@ -1,0 +1,12 @@
+name: thelowdown
+title: thelowdown
+username: aboyko-nu
+account: aboyko-nu
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13554932
+bundleId: 9486202
+url: https://aboyko-nu.shinyapps.io/thelowdown/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

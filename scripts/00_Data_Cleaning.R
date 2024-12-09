@@ -9,6 +9,23 @@ player_data <- load_cfb_rosters(seasons = 2024)
 team_stats <- cfbd_stats_season_team(year = 2024)
 team_data <- load_cfb_teams(fbs_only = TRUE)
 
+game_stats <- rbind(
+  cfbd_game_player_stats(year = 2024, week = 1) %>% mutate(week = 1),
+  cfbd_game_player_stats(year = 2024, week = 2) %>% mutate(week = 2),
+  cfbd_game_player_stats(year = 2024, week = 3) %>% mutate(week = 3),
+  cfbd_game_player_stats(year = 2024, week = 4) %>% mutate(week = 4),
+  cfbd_game_player_stats(year = 2024, week = 5) %>% mutate(week = 5),
+  cfbd_game_player_stats(year = 2024, week = 6) %>% mutate(week = 6),
+  cfbd_game_player_stats(year = 2024, week = 7) %>% mutate(week = 7),
+  cfbd_game_player_stats(year = 2024, week = 8) %>% mutate(week = 8),
+  cfbd_game_player_stats(year = 2024, week = 9) %>% mutate(week = 9),
+  cfbd_game_player_stats(year = 2024, week = 10) %>% mutate(week = 10),
+  cfbd_game_player_stats(year = 2024, week = 11) %>% mutate(week = 11),
+  cfbd_game_player_stats(year = 2024, week = 12) %>% mutate(week = 12),
+  cfbd_game_player_stats(year = 2024, week = 13) %>% mutate(week = 13),
+  cfbd_game_player_stats(year = 2024, week = 14) %>% mutate(week = 14),
+  cfbd_game_player_stats(year = 2024, week = 15) %>% mutate(week = 15))
+
 # variable selection ----
 player_stats <- player_stats %>%
   select(athlete_id, player, starts_with("passing"), starts_with("rushing"), starts_with("receiving"))
@@ -26,6 +43,11 @@ team_data <- team_data %>%
   filter(classification == "fbs") %>%
   select(school, mascot, abbreviation, conference,
          color, alt_color, logo, state, latitude, longitude)
+
+game_stats <- game_stats %>%
+  select(team, conference, home_away, week, athlete_name, passing_completions, passing_attempts, passing_yds,
+         passing_td, passing_qbr, rushing_car, rushing_yds, rushing_avg, rushing_td, receiving_rec,
+         receiving_yds, receiving_avg, receiving_td)
 
 # data cleaning ----
 team_stats <- team_stats %>%
@@ -79,6 +101,10 @@ player_data <- player_data %>%
   filter(team %in% fbs_teams, position %in% positions) %>%
   select(-c(feet, inches))
 
+game_stats <- game_stats %>%
+  filter(team %in% fbs_teams) %>%
+  mutate(completion_percentage = round(passing_completions / passing_attempts * 100, digits = 1))
+
 # data configuration ----
 team_player_data <- team_data %>%
   select(school, conference, color, alt_color, logo, full_name)
@@ -95,7 +121,33 @@ team_data <- team_data %>%
   left_join(team_stats, by = join_by(school == team)) %>%
   relocate(full_name, .after = mascot) %>% relocate(logo, .before = `Games Played`)
 
+game_stats <- game_stats %>%
+  left_join(player_data %>% select(player, position, team, color),
+            by = join_by(team == team, athlete_name == player)) %>%
+  filter(position %in% positions) %>%
+  select(athlete_name, team, conference, home_away, week,
+         passing_yds, passing_td, completion_percentage, passing_qbr,
+         rushing_car, rushing_yds, rushing_td, rushing_avg,
+         receiving_rec, receiving_yds, receiving_td, receiving_avg, color) %>% # to reorder manually
+  rename(player = athlete_name,
+         
+         "Passing Yards" = passing_yds,
+         "Passing Touchdowns" = passing_td,
+         "Completion Percentage" = completion_percentage,
+         "Quarterback Rating" = passing_qbr,
+         
+         "Carries" = rushing_car,
+         "Rushing Yards" = rushing_yds,
+         "Rushing Touchdowns" = rushing_td,
+         "Yards per Carry" = rushing_avg,
+         
+         "Receptions" = receiving_rec,
+         "Receiving Yards" = receiving_yds,
+         "Receiving Touchdowns" = receiving_td,
+         "Yards per Catch" = receiving_avg)
+
 # save out files ----
-save(player_data, file = "data/player_data.rda")
-save(team_data, file = "data/team_data.rda")
+save(player_data, file = "thelowdown/data/player_data.rda")
+save(team_data, file = "thelowdown/data/team_data.rda")
+save(game_stats, file = "thelowdown/data/game_stats.rda")
   
