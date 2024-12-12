@@ -26,6 +26,10 @@ game_stats <- rbind(
   cfbd_game_player_stats(year = 2024, week = 14) %>% mutate(week = 14),
   cfbd_game_player_stats(year = 2024, week = 15) %>% mutate(week = 15))
 
+games <- espn_cfb_schedule(year = 2024, season_type = "both", groups = "FBS") %>%
+  filter(season == 2024, game_date < Sys.Date()) %>%
+  select(game_id, game_date, home_team_location, away_team_location)
+
 # variable selection ----
 player_stats <- player_stats %>%
   select(athlete_id, player, starts_with("passing"), starts_with("rushing"), starts_with("receiving"))
@@ -45,7 +49,7 @@ team_data <- team_data %>%
          color, alt_color, logo, state, latitude, longitude)
 
 game_stats <- game_stats %>%
-  select(team, conference, home_away, week, athlete_name, passing_completions, passing_attempts, passing_yds,
+  select(team, conference, home_away, game_id, week, athlete_name, passing_completions, passing_attempts, passing_yds,
          passing_td, passing_qbr, rushing_car, rushing_yds, rushing_avg, rushing_td, receiving_rec,
          receiving_yds, receiving_avg, receiving_td)
 
@@ -64,13 +68,27 @@ team_stats <- team_stats %>%
          `4th Down Conversion` = fourth_down_pct, `Games Played` = games)
          
 team_data <- team_data %>%
-  mutate(alt_color = if_else(school == "South Alabama", "#FFFFFF", alt_color),
-                school = case_when(school == "Connecticut" ~ "UConn",
-                                   school == "Louisiana Monroe" ~ "UL Monroe",
-                                   school == "Sam Houston State" ~ "Sam Houston",
-                                   school == "Southern Mississippi" ~ "Southern Miss",
-                                   school == "UT San Antonio" ~ "UTSA", .default = school),
-         full_name = str_c(school, " ", mascot))
+  mutate(school = case_when(school == "Connecticut" ~ "UConn",
+                             school == "Louisiana Monroe" ~ "UL Monroe",
+                             school == "Sam Houston State" ~ "Sam Houston",
+                             school == "Southern Mississippi" ~ "Southern Miss",
+                             school == "UT San Antonio" ~ "UTSA", .default = school),
+         
+          color = case_when(school == "North Texas" ~ "#00853E",
+                           school == "Charlotte" ~ "#046A38", .default = color),
+         
+         alt_color = case_when(school == "South Alabama" ~ "#FFFFFF",
+                               school == "Bowling Green" ~ "#FE5000",
+                               school == "Cincinnati" ~ "#FFFFFF",
+                               school == "Marshall" ~ "#A2AAAD",
+                               school == "New Mexico" ~ "#BA0C2F",
+                               school == "Northern Illinois" ~ "#000000",
+                               school == "Penn State" ~ "#FFFFFF",
+                               school == "Pittsburgh" ~ "#FFB81C",
+                               school == "Southern Miss" ~ "#000000",
+                               school == "Vanderbilt" ~ "#866d4b", .default = alt_color),
+         full_name = str_c(school, " ", mascot),
+         full_name = if_else(school == "Florida International", "FIU Golden Panthers", full_name))
 
 fbs_teams <- unique(team_data$school)
 positions <- c("QB", "RB", "FB", "WR", "TE")
@@ -105,6 +123,13 @@ game_stats <- game_stats %>%
   filter(team %in% fbs_teams) %>%
   mutate(completion_percentage = round(passing_completions / passing_attempts * 100, digits = 1))
 
+games <- games %>%
+  mutate(home_team_location = case_when(home_team_location == "App State" ~ "Appalachian State",
+                                        home_team_location == "Massachusetts" ~ "UMass", .default = home_team_location),
+         away_team_location = case_when(away_team_location == "App State" ~ "Appalachian State",
+                                        away_team_location == "Massachusetts" ~ "UMass", .default = away_team_location),
+         game_id = as.integer(game_id))
+
 # data configuration ----
 team_player_data <- team_data %>%
   select(school, conference, color, alt_color, logo, full_name)
@@ -119,13 +144,16 @@ player_data <- player_data %>%
 
 team_data <- team_data %>%
   left_join(team_stats, by = join_by(school == team)) %>%
-  relocate(full_name, .after = mascot) %>% relocate(logo, .before = `Games Played`)
+  relocate(full_name, .after = mascot) %>% relocate(logo, .before = `Games Played`) # want per game stats?
 
 game_stats <- game_stats %>%
   left_join(player_data %>% select(player, position, team, color),
             by = join_by(team == team, athlete_name == player)) %>%
+  left_join(games, by = join_by(game_id == game_id)) %>%
+  mutate(game = if_else(team == home_team_location, str_c("Week ", week, " vs.\n", away_team_location),
+                            str_c("Week ", week, " at\n", home_team_location))) %>%
   filter(position %in% positions) %>%
-  select(athlete_name, team, conference, home_away, week,
+  select(athlete_name, team, conference, home_away, game, game_date,
          passing_yds, passing_td, completion_percentage, passing_qbr,
          rushing_car, rushing_yds, rushing_td, rushing_avg,
          receiving_rec, receiving_yds, receiving_td, receiving_avg, color) %>% # to reorder manually
@@ -144,10 +172,51 @@ game_stats <- game_stats %>%
          "Receptions" = receiving_rec,
          "Receiving Yards" = receiving_yds,
          "Receiving Touchdowns" = receiving_td,
-         "Yards per Catch" = receiving_avg)
+         "Yards per Catch" = receiving_avg) %>%
+  arrange(game_date, team, player)
+
+# Function to calculate percentiles for a qualified subset
+calculate_percentile <- function(values, condition) {
+  
+  stopifnot(length(values) == length(condition))
+  qualified_indices <- which(condition)
+  
+  ranks <- rank(values[qualified_indices])
+  total_valid <- length(qualified_indices)
+  
+  result <- rep(NA_real_, length(values))
+  result[qualified_indices] <- floor((ranks - 1) / (total_valid - 1) * 98) + 1
+  
+  return(result)
+}
+
+percentile_data <- player_data %>%
+  mutate(type = case_when(position == "QB" ~ "pass",
+                          position %in% c("FB", "RB") ~ "run",
+                          position %in% c("WR", "TE") ~ "catch")) %>%
+  filter(`Pass Attempts` >= 20 | Carries >= 20 | Receptions >= 20) %>%
+  mutate("Passing\nYards" = calculate_percentile(`Passing Yards`, `Pass Attempts` >= 20),
+         "Passing\nTDs" = calculate_percentile(`Passing TDs`, `Pass Attempts` >= 20),
+         "Completion\nPercentage" = calculate_percentile(`Completion Percentage`, `Pass Attempts` >= 20),
+         "Rushing\nYards" = calculate_percentile(`Rushing Yards`, Carries >= 20),
+         "Rushing\nTDs" = calculate_percentile(`Rushing TDs`, Carries >= 20),
+         "Rushing\nYPC" = calculate_percentile(`Yards Per Carry`, Carries >= 20),
+         "Receiving\nYards" = calculate_percentile(`Receiving Yards`, Receptions >= 10),
+         "Receiving\nTds" = calculate_percentile(`Receiving TDs`, Receptions >= 10),
+         "Receiving\nYPC" = calculate_percentile(`Yards Per Catch`, Receptions >= 10)) %>%
+  pivot_longer(cols = c("Passing\nYards", "Passing\nTDs", "Completion\nPercentage",
+                        "Rushing\nYards", "Rushing\nTDs", "Rushing\nYPC",
+                        "Receiving\nYards", "Receiving\nTds", "Receiving\nYPC"), names_to = "percentile") %>%
+  mutate(label = case_when(
+    value %% 10 == 1 & value %% 100 != 11 ~ str_c(value, "st"),
+    value %% 10 == 2 & value %% 100 != 12 ~ str_c(value, "nd"),
+    value %% 10 == 3 & value %% 100 != 13 ~ str_c(value, "rd"),
+    TRUE ~ str_c(value, "th"))) %>%
+  select(player, type, percentile, value, label)
 
 # save out files ----
 save(player_data, file = "thelowdown/data/player_data.rda")
 save(team_data, file = "thelowdown/data/team_data.rda")
 save(game_stats, file = "thelowdown/data/game_stats.rda")
+save(percentile_data, file = "thelowdown/data/percentile_data.rda")
   
